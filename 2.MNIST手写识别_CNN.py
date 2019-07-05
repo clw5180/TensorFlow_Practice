@@ -3,6 +3,7 @@ import tensorflow as tf
 mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 sess = tf.InteractiveSession()
 
+# 使用截断的正态分布来初始化权重
 # 给权重一些随机的噪声，打破完全对称；比如截断的正态分布噪声，标准差0.1,
 # 因为使用ReLU，故给偏置增加一些小的正值如0.1，避免失活节点（dead neurons）
 
