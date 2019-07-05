@@ -39,7 +39,7 @@ import re
 
 import tensorflow as tf
 
-import cifar10_input
+from cifar10 import cifar10_input
 
 FLAGS = tf.app.flags.FLAGS
 
