@@ -23,12 +23,12 @@ def get_batch_data():
     # 官方：Produces a slice of each Tensor in tensor_list. (deprecated)
     # tf.train.slice_input_producer是一个tensor生成器，每次从一个tensor列表中按顺序或者随机抽取出一个tensor放入文件名队列
     # images是一个tensor，shape是(20,5,5,3)，label也是一个tensor，shape是(20,)
-    # 返回的也是一个list，shape是(5,5,3)和()；相当于从batch_size=20的这批数据中取出1张图片和对应的标签
+    # 返回一个带list的队列，list中元素的shape是(5,5,3)和()；相当于每次从队列中取出1张图片和对应的标签
     # 另外要注意默认shuffle=True，这里手动改成False
     # num_epochs = N，表示生成器只能遍历tensor列表N次；否则可以无限次遍历tensor列表，需要在其他地方手动设置最大训练轮数
     input_queue = tf.train.slice_input_producer([images, label], num_epochs = num_epochs, shuffle=False)
     print('clw:input_queue[0].get_shape() = ', input_queue[0].get_shape())
-    print('clw:input_queue[0].get_shape() = ', input_queue[1].get_shape())
+    print('clw:input_queue[1].get_shape() = ', input_queue[1].get_shape())
 
     # 官方：Creates batches of tensors in tensors. (deprecated)
     # 自注：用上面的方法把样本个数为m的image或label数据打散成单个样本，然后在这里组成batch
