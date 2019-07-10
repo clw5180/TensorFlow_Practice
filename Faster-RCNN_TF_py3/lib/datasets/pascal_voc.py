@@ -20,14 +20,18 @@ from voc_eval import voc_eval
 from fast_rcnn.config import cfg
 import pdb
 
-
+# pascal_voc继承imdb
 class pascal_voc(imdb):
+    # 传进来的第一个参数为数据集名称（train，val，test...），第二个参数为版本，如2007,devkit_path暂时为空
     def __init__(self, image_set, year, devkit_path=None):
+        # 调用imdb的构造函数,传进去参数格式为"voc_year_imageset" -- 例如voc_2007_train,其实就是记录了一下self._name，其余的为默认,
+        # 其余默认参数有（self._num_classes,self._classes,self._image_index,self._obj_proposer,self._roidb,self._roidb_handler,self.config）
         imdb.__init__(self, 'voc_' + year + '_' + image_set)
         self._year = year
         self._image_set = image_set
-        self._devkit_path = self._get_default_path() if devkit_path is None \
-                            else devkit_path
+        # devikit_path在不给定下为None，此时self._devkit_path为Faster-RCNN_TF/data/VOCdevkit+self._year
+        self._devkit_path = self._get_default_path() if devkit_path is None else devkit_path
+        # 为Faster-RCNN_TF/data/VOCdevkit +'year'/'VOC' + self._year
         self._data_path = os.path.join(self._devkit_path, 'VOC' + self._year)
         self._classes = ('__background__', # always index 0
                          'aeroplane', 'bicycle', 'bird', 'boat',
@@ -35,12 +39,14 @@ class pascal_voc(imdb):
                          'cow', 'diningtable', 'dog', 'horse',
                          'motorbike', 'person', 'pottedplant',
                          'sheep', 'sofa', 'train', 'tvmonitor')
-        self._class_to_ind = dict(zip(self.classes, xrange(self.num_classes)))
+        # 在imdb中定义self.classes即为self._classes,self.num_classes为len(self._classes)
+        # self._class_to_ind里存的是{'__background__'：0,'aeroplane'：1.....}
+        self._class_to_ind = dict(zip(self.classes, range(self.num_classes)))
         self._image_ext = '.jpg'
-        self._image_index = self._load_image_set_index()
+        self._image_index = self._load_image_set_index() # 一个列表，包含对应数据集图像名称信息，如[000001,000007,...,000267]
         # Default to roidb handler
         #self._roidb_handler = self.selective_search_roidb
-        self._roidb_handler = self.gt_roidb
+        self._roidb_handler = self.gt_roidb # 得到roi图片信息,重载imdb中
         self._salt = str(uuid.uuid4())
         self._comp_id = 'comp4'
 
@@ -57,13 +63,13 @@ class pascal_voc(imdb):
         assert os.path.exists(self._data_path), \
                 'Path does not exist: {}'.format(self._data_path)
 
-    def image_path_at(self, i):
+    def image_path_at(self, i):   # 重载了imdb.py中定义，返回图片所在全路径
         """
         Return the absolute path to image i in the image sequence.
         """
         return self.image_path_from_index(self._image_index[i])
 
-    def image_path_from_index(self, index):
+    def image_path_from_index(self, index):   # image_path_at中调用，组合图片所在全路径
         """
         Construct an image path from the image's "index" identifier.
         """
@@ -73,7 +79,7 @@ class pascal_voc(imdb):
                 'Path does not exist: {}'.format(image_path)
         return image_path
 
-    def _load_image_set_index(self):
+    def _load_image_set_index(self):  # 获取图片引索
         """
         Load the indexes listed in this dataset's image set file.
         """
@@ -83,34 +89,46 @@ class pascal_voc(imdb):
                                       self._image_set + '.txt')
         assert os.path.exists(image_set_file), \
                 'Path does not exist: {}'.format(image_set_file)
+        # http://www.cnblogs.com/itdyb/p/5046472.html
+        # x.strip()就是当括号内为空就删除x开头与结尾的（'/n'，'/t',' '）
+        # 如果括号内有不为空，x.strip(XX)就在x的开头和结尾删除XX
+        # 还有只管开头lstrip(),结尾rstrip()
         with open(image_set_file) as f:
             image_index = [x.strip() for x in f.readlines()]
+        # 返回的image_index为一个列表，包含该数据集图片名称信息(之前做VOC数据集时候就有在对应txt中，是没有.jpg后缀的，这是为了让你方便修改代码，制作自己的数据集)
         return image_index
 
     def _get_default_path(self):
         """
         Return the default path where PASCAL VOC is expected to be installed.
         """
+        # 由config.py可知_get_default_path返回的是 Fsater-RCNN_TF/data/VOCdevkit+self._year
         return os.path.join(cfg.DATA_DIR, 'VOCdevkit' + self._year)
 
     def gt_roidb(self):
+        # 得到ROI组成的database
+
         """
         Return the database of ground-truth regions of interest.
 
         This function loads/saves from/to a cache file to speed up future calls.
         """
+
+        # cache_path=abs（Fsater-RCNN_TF/data/cache）,self.name为voc_' + year + '_' + image_set
+        # 则cache_file为abs（Fsater-RCNN_TF/data/cache）/'voc_' + year + '_' + image_set+'_gt_roidb.pkl'
+        # 例如Fsater-RCNN_TF/data/cache/voc_2007_train__gt_roidb.pkl
         cache_file = os.path.join(self.cache_path, self.name + '_gt_roidb.pkl')
         if os.path.exists(cache_file):
             with open(cache_file, 'rb') as fid:
                 roidb = cPickle.load(fid)
-            print '{} gt roidb loaded from {}'.format(self.name, cache_file)
+            print('{} gt roidb loaded from {}'.format(self.name, cache_file)) # clw modify:for py3
             return roidb
 
         gt_roidb = [self._load_pascal_annotation(index)
                     for index in self.image_index]
         with open(cache_file, 'wb') as fid:
             cPickle.dump(gt_roidb, fid, cPickle.HIGHEST_PROTOCOL)
-        print 'wrote gt roidb to {}'.format(cache_file)
+        print('wrote gt roidb to {}'.format(cache_file)) # clw modify:for py3
 
         return gt_roidb
 
@@ -127,7 +145,7 @@ class pascal_voc(imdb):
         if os.path.exists(cache_file):
             with open(cache_file, 'rb') as fid:
                 roidb = cPickle.load(fid)
-            print '{} ss roidb loaded from {}'.format(self.name, cache_file)
+            print('{} ss roidb loaded from {}'.format(self.name, cache_file)) # clw modify:for py3
             return roidb
 
         if int(self._year) == 2007 or self._image_set != 'test':
@@ -138,7 +156,7 @@ class pascal_voc(imdb):
             roidb = self._load_selective_search_roidb(None)
         with open(cache_file, 'wb') as fid:
             cPickle.dump(roidb, fid, cPickle.HIGHEST_PROTOCOL)
-        print 'wrote ss roidb to {}'.format(cache_file)
+        print('wrote ss roidb to {}'.format(cache_file)) # clw modify:for py3
 
         return roidb
 
@@ -154,7 +172,7 @@ class pascal_voc(imdb):
 
     def _load_rpn_roidb(self, gt_roidb):
         filename = self.config['rpn_file']
-        print 'loading {}'.format(filename)
+        print('loading {}'.format(filename)) # clw modify:for py3
         assert os.path.exists(filename), \
                'rpn data not found at: {}'.format(filename)
         with open(filename, 'rb') as f:
@@ -170,7 +188,7 @@ class pascal_voc(imdb):
         raw_data = sio.loadmat(filename)['boxes'].ravel()
 
         box_list = []
-        for i in xrange(raw_data.shape[0]):
+        for i in range(raw_data.shape[0]):
             boxes = raw_data[i][:, (1, 0, 3, 2)] - 1
             keep = ds_utils.unique_boxes(boxes)
             boxes = boxes[keep, :]
@@ -246,7 +264,7 @@ class pascal_voc(imdb):
         for cls_ind, cls in enumerate(self.classes):
             if cls == '__background__':
                 continue
-            print 'Writing {} VOC results file'.format(cls)
+            print('Writing {} VOC results file'.format(cls)) # clw modify:for py3
             filename = self._get_voc_results_file_template().format(cls)
             with open(filename, 'wt') as f:
                 for im_ind, index in enumerate(self.image_index):
@@ -254,7 +272,7 @@ class pascal_voc(imdb):
                     if dets == []:
                         continue
                     # the VOCdevkit expects 1-based indices
-                    for k in xrange(dets.shape[0]):
+                    for k in range(dets.shape[0]):
                         f.write('{:s} {:.3f} {:.1f} {:.1f} {:.1f} {:.1f}\n'.
                                 format(index, dets[k, -1],
                                        dets[k, 0] + 1, dets[k, 1] + 1,
@@ -276,7 +294,7 @@ class pascal_voc(imdb):
         aps = []
         # The PASCAL VOC metric changed in 2010
         use_07_metric = True if int(self._year) < 2010 else False
-        print 'VOC07 metric? ' + ('Yes' if use_07_metric else 'No')
+        print('VOC07 metric? ' + ('Yes' if use_07_metric else 'No')) # clw modify:for py3
         if not os.path.isdir(output_dir):
             os.mkdir(output_dir)
         for i, cls in enumerate(self._classes):
@@ -306,9 +324,9 @@ class pascal_voc(imdb):
         print('--------------------------------------------------------------')
 
     def _do_matlab_eval(self, output_dir='output'):
-        print '-----------------------------------------------------'
-        print 'Computing results with the official MATLAB eval code.'
-        print '-----------------------------------------------------'
+        print('-----------------------------------------------------') # clw modify:for py3
+        print('Computing results with the official MATLAB eval code.')
+        print('-----------------------------------------------------')
         path = os.path.join(cfg.ROOT_DIR, 'lib', 'datasets',
                             'VOCdevkit-matlab-wrapper')
         cmd = 'cd {} && '.format(path)

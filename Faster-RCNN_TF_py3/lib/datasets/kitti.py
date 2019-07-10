@@ -23,7 +23,7 @@ class kitti(datasets.imdb):
                             else kitti_path
         self._data_path = os.path.join(self._kitti_path, 'data_object_image_2')
         self._classes = ('__background__', 'Car', 'Pedestrian', 'Cyclist')
-        self._class_to_ind = dict(zip(self.classes, xrange(self.num_classes)))
+        self._class_to_ind = dict(zip(self.classes, range(self.num_classes)))
         self._image_ext = '.png'
         self._image_index = self._load_image_set_index()
         # Default to roidb handler
@@ -115,7 +115,7 @@ class kitti(datasets.imdb):
         if os.path.exists(cache_file):
             with open(cache_file, 'rb') as fid:
                 roidb = cPickle.load(fid)
-            print '{} gt roidb loaded from {}'.format(self.name, cache_file)
+            print('{} gt roidb loaded from {}'.format(self.name, cache_file))
             return roidb
 
         gt_roidb = [self._load_kitti_voxel_exemplar_annotation(index)
@@ -123,14 +123,14 @@ class kitti(datasets.imdb):
 
         if cfg.IS_RPN:
             # print out recall
-            for i in xrange(1, self.num_classes):
-                print '{}: Total number of boxes {:d}'.format(self.classes[i], self._num_boxes_all[i])
-                print '{}: Number of boxes covered {:d}'.format(self.classes[i], self._num_boxes_covered[i])
-                print '{}: Recall {:f}'.format(self.classes[i], float(self._num_boxes_covered[i]) / float(self._num_boxes_all[i]))
+            for i in range(1, self.num_classes):
+                print('{}: Total number of boxes {:d}'.format(self.classes[i], self._num_boxes_all[i]))
+                print('{}: Number of boxes covered {:d}'.format(self.classes[i], self._num_boxes_covered[i]))
+                print('{}: Recall {:f}'.format(self.classes[i], float(self._num_boxes_covered[i]) / float(self._num_boxes_all[i])))
 
         with open(cache_file, 'wb') as fid:
             cPickle.dump(gt_roidb, fid, cPickle.HIGHEST_PROTOCOL)
-        print 'wrote gt roidb to {}'.format(cache_file)
+        print('wrote gt roidb to {}'.format(cache_file))
 
         return gt_roidb
 
@@ -200,11 +200,11 @@ class kitti(datasets.imdb):
                     index = np.tile(range(num_objs), len(cfg.TRAIN.SCALES))
                     max_overlaps = overlaps_grid.max(axis = 0)
                     fg_inds = []
-                    for k in xrange(1, self.num_classes):
+                    for k in range(1, self.num_classes):
                         fg_inds.extend(np.where((gt_classes_all == k) & (max_overlaps >= cfg.TRAIN.FG_THRESH[k-1]))[0])
                     index_covered = np.unique(index[fg_inds])
 
-                    for i in xrange(self.num_classes):
+                    for i in range(self.num_classes):
                         self._num_boxes_all[i] += len(np.where(gt_classes == i)[0])
                         self._num_boxes_covered[i] += len(np.where(gt_classes[index_covered] == i)[0])
             else:
@@ -254,10 +254,10 @@ class kitti(datasets.imdb):
                 if num_objs != 0:
                     max_overlaps = overlaps_grid.max(axis = 0)
                     fg_inds = []
-                    for k in xrange(1, self.num_classes):
+                    for k in range(1, self.num_classes):
                         fg_inds.extend(np.where((gt_classes == k) & (max_overlaps >= cfg.TRAIN.FG_THRESH[k-1]))[0])
 
-                    for i in xrange(self.num_classes):
+                    for i in range(self.num_classes):
                         self._num_boxes_all[i] += len(np.where(gt_classes == i)[0])
                         self._num_boxes_covered[i] += len(np.where(gt_classes[fg_inds] == i)[0])
 
@@ -355,11 +355,11 @@ class kitti(datasets.imdb):
                     index = np.tile(range(num_objs), len(cfg.TRAIN.SCALES))
                     max_overlaps = overlaps_grid.max(axis = 0)
                     fg_inds = []
-                    for k in xrange(1, self.num_classes):
+                    for k in range(1, self.num_classes):
                         fg_inds.extend(np.where((gt_classes_all == k) & (max_overlaps >= cfg.TRAIN.FG_THRESH[k-1]))[0])
                     index_covered = np.unique(index[fg_inds])
 
-                    for i in xrange(self.num_classes):
+                    for i in range(self.num_classes):
                         self._num_boxes_all[i] += len(np.where(gt_classes == i)[0])
                         self._num_boxes_covered[i] += len(np.where(gt_classes[index_covered] == i)[0])
             else:
@@ -412,10 +412,10 @@ class kitti(datasets.imdb):
                 if num_objs != 0:
                     max_overlaps = overlaps_grid.max(axis = 0)
                     fg_inds = []
-                    for k in xrange(1, self.num_classes):
+                    for k in range(1, self.num_classes):
                         fg_inds.extend(np.where((gt_classes == k) & (max_overlaps >= cfg.TRAIN.FG_THRESH[k-1]))[0])
 
-                    for i in xrange(self.num_classes):
+                    for i in range(self.num_classes):
                         self._num_boxes_all[i] += len(np.where(gt_classes == i)[0])
                         self._num_boxes_covered[i] += len(np.where(gt_classes[fg_inds] == i)[0])
 
@@ -441,19 +441,19 @@ class kitti(datasets.imdb):
         if os.path.exists(cache_file):
             with open(cache_file, 'rb') as fid:
                 roidb = cPickle.load(fid)
-            print '{} roidb loaded from {}'.format(self.name, cache_file)
+            print('{} roidb loaded from {}'.format(self.name, cache_file))
             return roidb
 
         if self._image_set != 'test':
             gt_roidb = self.gt_roidb()
 
-            print 'Loading region proposal network boxes...'
+            print('Loading region proposal network boxes...')
             if self._image_set == 'trainval':
                 model = cfg.REGION_PROPOSAL + '_227/'
             else:
                 model = cfg.REGION_PROPOSAL + '_125/'
             rpn_roidb = self._load_rpn_roidb(gt_roidb, model)
-            print 'Region proposal network boxes loaded'
+            print('Region proposal network boxes loaded')
             roidb = datasets.imdb.merge_roidbs(rpn_roidb, gt_roidb)
 
             # print 'Loading voxel pattern boxes...'
@@ -476,10 +476,10 @@ class kitti(datasets.imdb):
             # roidb = datasets.imdb.merge_roidbs(ss_roidb, gt_roidb)
             # roidb = datasets.imdb.merge_roidbs(roidb, acf_roidb)
         else:
-            print 'Loading region proposal network boxes...'
+            print('Loading region proposal network boxes...')
             model = cfg.REGION_PROPOSAL + '_227/'
             roidb = self._load_rpn_roidb(None, model)
-            print 'Region proposal network boxes loaded'
+            print('Region proposal network boxes loaded')
 
             # print 'Loading voxel pattern boxes...'
             # model = '3DVP_227/'
@@ -495,11 +495,11 @@ class kitti(datasets.imdb):
             # print 'ACF boxes loaded'
 
             # roidb = datasets.imdb.merge_roidbs(roidb, acf_roidb)
-        print '{} region proposals per image'.format(self._num_boxes_proposal / len(self.image_index))
+        print('{} region proposals per image'.format(self._num_boxes_proposal / len(self.image_index)))
 
         with open(cache_file, 'wb') as fid:
             cPickle.dump(roidb, fid, cPickle.HIGHEST_PROTOCOL)
-        print 'wrote roidb to {}'.format(cache_file)
+        print('wrote roidb to {}'.format(cache_file))
 
         return roidb
 
@@ -531,7 +531,7 @@ class kitti(datasets.imdb):
             raw_data = raw_data[inds,:4]
             self._num_boxes_proposal += raw_data.shape[0]
             box_list.append(raw_data)
-            print 'load {}: {}'.format(model, index)
+            print('load {}: {}'.format(model, index))
 
         return self.create_roidb_from_box_list(box_list, gt_roidb)
 
@@ -565,7 +565,7 @@ class kitti(datasets.imdb):
         if os.path.exists(cache_file):
             with open(cache_file, 'rb') as fid:
                 box_list = cPickle.load(fid)
-            print '{} boxes loaded from {}'.format(self.name, cache_file)
+            print('{} boxes loaded from {}'.format(self.name, cache_file))
         else:
             # set the prefix
             model = 'selective_search/'
@@ -584,7 +584,7 @@ class kitti(datasets.imdb):
 
             with open(cache_file, 'wb') as fid:
                 cPickle.dump(box_list, fid, cPickle.HIGHEST_PROTOCOL)
-            print 'wrote selective search boxes to {}'.format(cache_file)
+            print('wrote selective search boxes to {}'.format(cache_file))
 
         return self.create_roidb_from_box_list(box_list, gt_roidb)
 
@@ -595,7 +595,7 @@ class kitti(datasets.imdb):
         if os.path.exists(cache_file):
             with open(cache_file, 'rb') as fid:
                 box_list = cPickle.load(fid)
-            print '{} boxes loaded from {}'.format(self.name, cache_file)
+            print('{} boxes loaded from {}'.format(self.name, cache_file))
         else:
             # set the prefix
             model = 'ACF/'
@@ -614,7 +614,7 @@ class kitti(datasets.imdb):
 
             with open(cache_file, 'wb') as fid:
                 cPickle.dump(box_list, fid, cPickle.HIGHEST_PROTOCOL)
-            print 'wrote ACF boxes to {}'.format(cache_file)
+            print('wrote ACF boxes to {}'.format(cache_file))
 
         return self.create_roidb_from_box_list(box_list, gt_roidb)
 
@@ -641,7 +641,7 @@ class kitti(datasets.imdb):
         # for each image
         for im_ind, index in enumerate(self.image_index):
             filename = os.path.join(output_dir, index + '.txt')
-            print 'Writing KITTI results to file ' + filename
+            print('Writing KITTI results to file ' + filename)
             with open(filename, 'wt') as f:
                 # for each class
                 for cls_ind, cls in enumerate(self.classes):
@@ -650,7 +650,7 @@ class kitti(datasets.imdb):
                     dets = all_boxes[cls_ind][im_ind]
                     if dets == []:
                         continue
-                    for k in xrange(dets.shape[0]):
+                    for k in range(dets.shape[0]):
                         if cfg.TEST.SUBCLS:
                             subcls = int(dets[k, 5])
                             cls_name = self.classes[self.subclass_mapping[subcls]]
@@ -665,7 +665,7 @@ class kitti(datasets.imdb):
     def evaluate_detections_one_file(self, all_boxes, output_dir):
         # open results file
         filename = os.path.join(output_dir, 'detections.txt')
-        print 'Writing all KITTI results to file ' + filename
+        print('Writing all KITTI results to file ' + filename)
         with open(filename, 'wt') as f:
             # for each image
             for im_ind, index in enumerate(self.image_index):
@@ -676,7 +676,7 @@ class kitti(datasets.imdb):
                     dets = all_boxes[cls_ind][im_ind]
                     if dets == []:
                         continue
-                    for k in xrange(dets.shape[0]):
+                    for k in range(dets.shape[0]):
                         if cfg.TEST.SUBCLS:
                             subcls = int(dets[k, 5])
                             cls_name = self.classes[self.subclass_mapping[subcls]]
@@ -690,7 +690,7 @@ class kitti(datasets.imdb):
         # for each image
         for im_ind, index in enumerate(self.image_index):
             filename = os.path.join(output_dir, index + '.txt')
-            print 'Writing KITTI results to file ' + filename
+            print('Writing KITTI results to file ' + filename)
             with open(filename, 'wt') as f:
                 # for each class
                 for cls_ind, cls in enumerate(self.classes):
@@ -699,7 +699,7 @@ class kitti(datasets.imdb):
                     dets = all_boxes[cls_ind][im_ind]
                     if dets == []:
                         continue
-                    for k in xrange(dets.shape[0]):
+                    for k in range(dets.shape[0]):
                         f.write('{:f} {:f} {:f} {:f} {:.32f}\n'.format(\
                                  dets[k, 0], dets[k, 1], dets[k, 2], dets[k, 3], dets[k, 4]))
 
@@ -707,12 +707,12 @@ class kitti(datasets.imdb):
         # for each image
         for im_ind, index in enumerate(self.image_index):
             filename = os.path.join(output_dir, index + '.txt')
-            print 'Writing KITTI results to file ' + filename
+            print('Writing KITTI results to file ' + filename)
             with open(filename, 'wt') as f:
                 dets = all_boxes[im_ind]
                 if dets == []:
                     continue
-                for k in xrange(dets.shape[0]):
+                for k in range(dets.shape[0]):
                     f.write('{:f} {:f} {:f} {:f} {:.32f}\n'.format(dets[k, 0], dets[k, 1], dets[k, 2], dets[k, 3], dets[k, 4]))
 
 

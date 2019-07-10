@@ -23,7 +23,7 @@ h = conv2d(data, W)
 [y, argmax] = roi_pooling_op.roi_pool(h, rois, 6, 6, 1.0/3)
 pdb.set_trace()
 y_data = tf.convert_to_tensor(np.ones((2, 6, 6, 1)), dtype=tf.float32)
-print y_data, y, argmax
+print(y_data, y, argmax)
 
 # Minimize the mean squared errors.
 loss = tf.reduce_mean(tf.square(y - y_data))
@@ -36,7 +36,8 @@ init = tf.initialize_all_variables()
 sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
 sess.run(init)
 pdb.set_trace()
-for step in xrange(10):
+
+for step in range(10): # clw modify: for py3
     sess.run(train)
     print(step, sess.run(W))
     print(sess.run(y))

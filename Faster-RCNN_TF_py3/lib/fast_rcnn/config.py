@@ -21,7 +21,11 @@ import os.path as osp
 import numpy as np
 from distutils import spawn
 # `pip install easydict` if you don't have it
+# easydict的应用：https://pypi.python.org/pypi/easydict/
+# EasyDict允许使用点.操作符，以属性的方式来获取字典值；（之前是用[]）
+# 就是一个dict的子类，但是功能变的更加简洁，如添加元素也只需要'.'操作即可
 from easydict import EasyDict as edict
+
 
 __C = edict()
 # Consumers can get config by:
@@ -218,6 +222,20 @@ __C.EPS = 1e-14
 # Root directory of project
 __C.ROOT_DIR = osp.abspath(osp.join(osp.dirname(__file__), '..', '..'))
 
+#-------------------------------------------------------------------------------------
+# Data directory
+#osp.join为os.path.join，osp.join('home'，'ubuntu'，'clwclw')返回'home/ubuntu/clwclw'
+#osp.abspath（path）为将该路径转化为绝对路径
+#os.path.split（path）将path分割成目录和文件名二元组返回
+#os.path.dirname(path)返回文件之前的路径，即os.path.split(path)的第一个元素
+#os.path.basename(path)返回path最后的文件名。如何path以／或\结尾，那么就会返回空值。即os.path.split(path)的第二个元素。
+#os.path.commonprefix（path1,path2,path3..）给定的这几个路径找到重合部分路径并返回
+#os.path.exists（path）查看该路径是否存在，返回bool值
+#os.path.isabs(path)判断是否是绝对路径，返回bool
+#os.path.isfile(path)如果path是一个存在的文件，返回True。否则返回False
+#os.path.isdir(path) 如果path是一个存在的路径，返回True。否则返回False
+#-------------------------------------------------------------------------------------
+
 # Data directory
 __C.DATA_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'data'))
 
@@ -251,6 +269,7 @@ def get_output_dir(imdb, weights_filename):
     outdir = osp.abspath(osp.join(__C.ROOT_DIR, 'output', __C.EXP_DIR, imdb.name))
     if weights_filename is not None:
         outdir = osp.join(outdir, weights_filename)
+    # 如果该路径不存在，就创建这样的一个路径
     if not os.path.exists(outdir):
         os.makedirs(outdir)
     return outdir
@@ -289,6 +308,8 @@ def _merge_a_into_b(a, b):
 
 def cfg_from_file(filename):
     """Load a config file and merge it into the default options."""
+    # 加载一个文件就是先open再用yaml或pickle去打开
+    # edict为easydict，为dict的一个实例，就是为了简便创建一个字典
     import yaml
     with open(filename, 'r') as f:
         yaml_cfg = edict(yaml.load(f))

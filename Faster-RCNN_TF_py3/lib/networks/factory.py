@@ -24,6 +24,7 @@ def get_network(name):
     #if not __sets.has_key(name):
     #    raise KeyError('Unknown dataset: {}'.format(name))
     #return __sets[name]
+    # 根据给定的network_name来拆分，根据test/train位置取net的性质信息
     if name.split('_')[1] == 'test':
        return networks.VGGnet_test()
     elif name.split('_')[1] == 'train':
