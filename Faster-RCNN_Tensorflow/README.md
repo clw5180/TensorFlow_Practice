@@ -1,4 +1,5 @@
 # Faster-RCNN_Tensorflow ： Fork from https://github.com/DetectionTeamUCAS/Faster-RCNN_Tensorflow
+自行添加了注释，并对网络中的参数做了一些细微的调整；
 
 ## Abstract
 This is a tensorflow re-implementation of [Faster R-CNN: Towards Real-Time ObjectDetection with Region Proposal Networks](https://arxiv.org/abs/1506.01497).     

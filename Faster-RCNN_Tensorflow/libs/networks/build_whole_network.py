@@ -317,16 +317,24 @@ class DetectionNetwork(object):
         feature_to_cropped = self.build_base_network(input_img_batch) # 首先建立基础特征提取网络
 
         # 2. build rpn
-        with tf.variable_scope('build_rpn',
-                               regularizer=slim.l2_regularizer(cfgs.WEIGHT_DECAY)):
+        with tf.variable_scope('build_rpn',  # clw note：变量空间的名称，tf.variable_scope()主要用于管理图中变量的名字
+                                             #           而tf.name_scope()主要用于管理图中各种op；
+                               regularizer=slim.l2_regularizer(cfgs.WEIGHT_DECAY)): # 默认的正则化函数
 
-            rpn_conv3x3 = slim.conv2d(
-                feature_to_cropped, 512, [3, 3],
-                trainable=self.is_training, weights_initializer=cfgs.INITIALIZER,
-                activation_fn=tf.nn.relu,
-                scope='rpn_conv/3x3')
-            rpn_cls_score = slim.conv2d(rpn_conv3x3, self.num_anchors_per_location*2, [1, 1],stride=1,
-                                        trainable=self.is_training, weights_initializer=cfgs.INITIALIZER,
+            # 建立RPN网络，可以看出，这是一个三层的卷积网络，第一层网络采用一个3X3的卷积核在特征图上滑动，生成一个高层的特征图，
+            # 第二层的一路通过1x1的卷积核，stride=1进行滑动，每一处的输出维度为锚点数*2 ，输出维度与rpn_conv3x3相同，
+            # 另一路在卷积特征图上用1x1的卷积核stride为1进行卷积，卷积核的深度为锚点数 * 4。根据原始faster - rcnn论文，
+            # 这里第二层一路卷积输出为当前位置是否含有目标，另一路卷积输出为框回归坐标，第二层卷积核通过softmax函数归一化处理。
+            rpn_conv3x3 = slim.conv2d(feature_to_cropped, 512, [3, 3],
+                                      trainable=self.is_training,
+                                      weights_initializer=cfgs.INITIALIZER,
+                                      activation_fn=tf.nn.relu,
+                                      scope='rpn_conv/3x3')
+            rpn_cls_score = slim.conv2d(rpn_conv3x3,
+                                        self.num_anchors_per_location*2, [1, 1],
+                                        stride=1,
+                                        trainable=self.is_training,
+                                        weights_initializer=cfgs.INITIALIZER,
                                         activation_fn=None,
                                         scope='rpn_cls_score')
             rpn_box_pred = slim.conv2d(rpn_conv3x3, self.num_anchors_per_location*4, [1, 1], stride=1,
@@ -338,6 +346,7 @@ class DetectionNetwork(object):
             rpn_cls_prob = slim.softmax(rpn_cls_score, scope='rpn_cls_prob')
 
         # 3. generate_anchors
+        # clw note：在resnet_base网络所获得的特征图上根据scales以及ratios产生Anchors
         featuremap_height, featuremap_width = tf.shape(feature_to_cropped)[1], tf.shape(feature_to_cropped)[2]
         featuremap_height = tf.cast(featuremap_height, tf.float32)
         featuremap_width = tf.cast(featuremap_width, tf.float32)

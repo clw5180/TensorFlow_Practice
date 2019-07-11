@@ -63,6 +63,7 @@ def detect(det_net, inference_save_path, real_test_imgname_list):
             # print("{} cost time : {} ".format(img_name, (end - start)))
 
             show_indices = detected_scores >= cfgs.SHOW_SCORE_THRSHOLD
+            print('clw: detected_scores = ', detected_scores)
             show_scores = detected_scores[show_indices]
             show_boxes = detected_boxes[show_indices]
             show_categories = detected_categories[show_indices]

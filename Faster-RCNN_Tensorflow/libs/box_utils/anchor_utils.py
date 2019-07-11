@@ -3,9 +3,13 @@ from __future__ import absolute_import, print_function, division
 
 import tensorflow as tf
 
-def make_anchors(base_anchor_size, anchor_scales, anchor_ratios,
-                 featuremap_height, featuremap_width,
-                 stride, name='make_anchors'):
+def make_anchors(base_anchor_size,  # clw note：作者给的默认值是256
+                 anchor_scales,     #           论文中是[0.5, 1, 2]
+                 anchor_ratios,     #           论文中是[0.5, 1, 2]
+                 featuremap_height, #           比如224*224的图，如经过ResNet50，到这里就相当于7*7（相当于除以32）
+                 featuremap_width,  #           具体可见笔记：ResNet结构图
+                 stride,            #           cfgs.py中默认设置为16，且作者建议不要修改
+                 name='make_anchors'):
     '''
     :param base_anchor_size:256
     :param anchor_scales:
@@ -17,6 +21,7 @@ def make_anchors(base_anchor_size, anchor_scales, anchor_ratios,
     '''
     with tf.variable_scope(name):
         base_anchor = tf.constant([0, 0, base_anchor_size, base_anchor_size], tf.float32)  # [x_center, y_center, w, h]
+
 
         ws, hs = enum_ratios(enum_scales(base_anchor, anchor_scales),
                              anchor_ratios)  # per locations ws and hs
@@ -39,7 +44,11 @@ def make_anchors(base_anchor_size, anchor_scales, anchor_ratios,
                              anchor_centers + 0.5*box_sizes], axis=1)
         return anchors
 
-
+#-----------------------------------------------------------------------
+# clw note：具体生成框的代码分析如下：
+# 经过两层枚举，就可以得到九种大小不同的hs和ws。经过乘以stride后所得到的x_center 与 y_center ,则为具体在原始图像上的锚点中心，
+# 经过anchors = tf.concat([anchor_centers - 0.5*box_sizes, anchor_centers + 0.5*box_sizes], axis=1)，
+# 则可以得到每一个锚点对应的九种不同anchor 的坐标值分别为，（左下角，右上角）。
 def enum_scales(base_anchor, anchor_scales):
 
     anchor_scales = base_anchor * tf.constant(anchor_scales, dtype=tf.float32, shape=(len(anchor_scales), 1))
@@ -62,5 +71,5 @@ def enum_ratios(anchors, anchor_ratios):
     hs = tf.reshape(hs * sqrt_ratios[:, tf.newaxis], [-1, 1])
 
     return hs, ws
-
+#-----------------------------------------------------------------------
 

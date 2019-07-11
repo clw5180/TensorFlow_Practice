@@ -180,7 +180,7 @@ def resnet_v1(inputs,
     ValueError: If the target output_stride is not valid.
   """
   with tf.variable_scope(scope, 'resnet_v1', [inputs], reuse=reuse) as sc:
-    end_points_collection = sc.name + '_end_points'
+    end_points_collection = sc.name + '_end_points'  # 这是用字符串来命名collection的名字。
     with slim.arg_scope([slim.conv2d, bottleneck,
                          resnet_utils.stack_blocks_dense],
                         outputs_collections=end_points_collection):
@@ -194,10 +194,16 @@ def resnet_v1(inputs,
           net = resnet_utils.conv2d_same(net, 64, 7, stride=2, scope='conv1')
           net = slim.max_pool2d(net, [3, 3], stride=2, scope='pool1')
         net = resnet_utils.stack_blocks_dense(net, blocks, output_stride)
+
+        # if global_pool:这里的意思就是全局池化，效率会比avg_pool要更很多，即对每个feature做平均池化，
+        # 使每个feature输出一个值，这是得到[1,1,channel]大小的向量，即我们的全连接层net, 为了后期做分类使用。
         if global_pool:
           # Global average pooling.
           net = tf.reduce_mean(net, [1, 2], name='pool5', keep_dims=True)
           # yjr_feature = tf.squeeze(net, [0, 1, 2])
+
+        # if num_classes:这里是不但输出一个全连接层也输出分类结果。但是我们在做finetune训练自己的模型的时候，
+        # 我们要将我们的num_classes设置为None, 我们只需要得出我们的全连接层net即可。
         if num_classes is not None:
           net = slim.conv2d(net, num_classes, [1, 1], activation_fn=None,
                             normalizer_fn=None, scope='logits')
@@ -205,9 +211,9 @@ def resnet_v1(inputs,
           logits = tf.squeeze(net, [1, 2], name='SpatialSqueeze')
         else:
           logits = net
+
         # Convert end_points_collection into a dictionary of end_points.
-        end_points = slim.utils.convert_collection_to_dict(
-            end_points_collection)
+        end_points = slim.utils.convert_collection_to_dict(end_points_collection)
         if num_classes is not None:
           end_points['predictions'] = slim.softmax(logits, scope='predictions')
 
