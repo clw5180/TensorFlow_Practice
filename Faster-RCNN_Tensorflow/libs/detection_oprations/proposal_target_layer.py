@@ -32,6 +32,7 @@ def proposal_target_layer(rpn_rois, gt_boxes):
     fg_rois_per_image = np.round(cfgs.FAST_RCNN_POSITIVE_RATE * rois_per_image)
 
     # Sample rois with classification labels and bounding box regression
+    # 其函数的输入为所有的由RPN所产生的RoIs，以及所有的gt_boxs,每一幅图需要产生的目标roi数目，没幅图的roi，真实的类别数目)
     labels, rois, bbox_targets = _sample_rois(all_rois, gt_boxes, fg_rois_per_image,
                                               rois_per_image, cfgs.CLASS_NUM+1)
     # print(labels.shape, rois.shape, bbox_targets.shape)
@@ -94,11 +95,16 @@ def _sample_rois(all_rois, gt_boxes, fg_rois_per_image,
     gt_boxes shape is [-1, 5]. that is [x1, y1, x2, y2, label]
     """
     # overlaps: (rois x gt_boxes)
+
+    # clw note：计算所有的RPN产生的ROI与所有的ground truth的目标框的重叠率
     overlaps = bbox_overlaps(
         np.ascontiguousarray(all_rois, dtype=np.float),
         np.ascontiguousarray(gt_boxes[:, :-1], dtype=np.float))
+
+    # 得到与每一个roi最大重叠的gt_box 的框的索引 以及 重叠率
     gt_assignment = overlaps.argmax(axis=1)
     max_overlaps = overlaps.max(axis=1)
+    # 获得相对应的类别标签
     labels = gt_boxes[gt_assignment, -1]
 
     # Select foreground RoIs as those with >= FG_THRESH overlap
@@ -112,9 +118,10 @@ def _sample_rois(all_rois, gt_boxes, fg_rois_per_image,
     # Guard against the case when an image has fewer than fg_rois_per_image
     # foreground RoIs
     fg_rois_per_this_image = min(fg_rois_per_image, fg_inds.size)
+    # 以最小的 fg_size 作为fg_rois_per_this_image
 
     # Sample foreground regions without replacement
-    if fg_inds.size > 0:
+    if fg_inds.size > 0:  # 如果有目标
         fg_inds = npr.choice(fg_inds, size=int(fg_rois_per_this_image), replace=False)
     # Compute number of background RoIs to take from this image (guarding
     # against there being fewer than desired)
@@ -127,7 +134,7 @@ def _sample_rois(all_rois, gt_boxes, fg_rois_per_image,
     # print("second fileter, fg_size: {} || bg_size: {}".format(fg_inds.shape, bg_inds.shape))
     # The indices that we're selecting (both fg and bg)
     keep_inds = np.append(fg_inds, bg_inds)
-
+    #  选择出来的fg以及bg是在相关的阈值基础上得到的，bg的选取有一个最低的阈值
 
     # Select sampled values from various arrays:
     labels = labels[keep_inds]
@@ -136,9 +143,14 @@ def _sample_rois(all_rois, gt_boxes, fg_rois_per_image,
     labels[int(fg_rois_per_this_image):] = 0
     rois = all_rois[keep_inds]
 
+    # 计算bbox目标数据，输入都是对应的keep_inds所对应的roi，gt_box，labels
     bbox_target_data = _compute_targets(
         rois, gt_boxes[gt_assignment[keep_inds], :-1], labels)
-    bbox_targets = \
-        _get_bbox_regression_labels(bbox_target_data, num_classes)
+    # 其返回值为 roi与gt_box 之间映射的因子矩阵以及对应的类别信息,
+    # 下面的函数将为每一个非background的类写入相关的四个坐标因此t，
+    # 这里，由于num_classes是从tf-record 中直接得到的，因此类数量是包含background的，因此比真实的要多出一类
+    bbox_targets = _get_bbox_regression_labels(bbox_target_data, num_classes)
 
+    # 返回值后期计算的labels（这里为具体的类），rois为要保留的roi，bbox_targets 为每一个具体的类
+    # （一共的NUM_CLASS个类，每一个类对应四个坐标点）对应的坐标映射矩阵
     return labels, rois, bbox_targets

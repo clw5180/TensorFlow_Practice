@@ -1,4 +1,4 @@
-# Faster-RCNN_Tensorflow ： Fork from https://github.com/DetectionTeamUCAS/Faster-RCNN_Tensorflow
+# Faster-RCNN_Tensorflow ： Fork from DetectionTeamUCAS： https://github.com/DetectionTeamUCAS/Faster-RCNN_Tensorflow
 自行添加了注释，并对网络中的参数做了一些细微的调整；
 
 ## Abstract

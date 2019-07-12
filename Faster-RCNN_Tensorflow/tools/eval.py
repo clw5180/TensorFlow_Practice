@@ -33,6 +33,8 @@ def eval_with_plac(det_net, real_test_imgname_list, img_root, draw_imgs=False):
     img_batch = img_batch - tf.constant(cfgs.PIXEL_MEAN)
     img_batch = tf.expand_dims(img_batch, axis=0)
 
+    # clw note：这里得到最终预测的bbox和最终的score
+    # TODO：可以跟一下打出来的这几个变量值
     detection_boxes, detection_scores, detection_category = det_net.build_whole_detection_network(
         input_img_batch=img_batch,
         gtboxes_batch=None)
@@ -104,7 +106,8 @@ def eval_with_plac(det_net, real_test_imgname_list, img_root, draw_imgs=False):
         save_dir = os.path.join(cfgs.EVALUATE_DIR, cfgs.VERSION)
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
-        fw1 = open(os.path.join(save_dir, 'detections.pkl'), 'w')
+        #fw1 = open(os.path.join(save_dir, 'detections.pkl'), 'w')
+        fw1 = open(os.path.join(save_dir, 'detections.pkl'), 'wb') # clw modify: for py3
         pickle.dump(all_boxes, fw1)
 
 
@@ -130,7 +133,8 @@ def eval(num_imgs, eval_dir, annotation_dir, showbox):
     save_dir = os.path.join(cfgs.EVALUATE_DIR, cfgs.VERSION)
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
-    with open(os.path.join(save_dir, 'detections.pkl')) as f:
+    #with open(os.path.join(save_dir, 'detections.pkl')) as f:
+    with open(os.path.join(save_dir, 'detections.pkl'), 'rb') as f:   # clw modify: for py3
         all_boxes = pickle.load(f)
 
         print(len(all_boxes))

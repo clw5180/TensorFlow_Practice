@@ -110,8 +110,10 @@ def resnet_base(img_batch, scope_name, is_training=True):
               resnet_v1_block('block2', base_depth=128, num_units=4, stride=2),
               # use stride 1 for the last conv4 layer.
 
+              # 注意这里block3的stride=1呢，正常的resnet不应该是stride=2；
+              # 原因作者讲，tf.slim对resnet的实现方式和论文有一点不样。
               resnet_v1_block('block3', base_depth=256, num_units=middle_num_units, stride=1)]
-              # when use fpn . stride list is [1, 2, 2]
+              # when use fpn . stride list is [1, 2, 2]   clw note：TODO
 
     with slim.arg_scope(resnet_arg_scope(is_training=False)):
         with tf.variable_scope(scope_name, scope_name):
@@ -157,7 +159,13 @@ def resnet_base(img_batch, scope_name, is_training=True):
                                     scope=scope_name)
     # add_heatmap(C4, name='Layer/C4')
     # C4 = tf.Print(C4, [tf.shape(C4)], summarize=10, message='C4_shape')
+
+    # 网友提问：我看你的代码中关于采用resnet提取特征的，发现特征图是从conv_4之后那个进入roi pooling的，
+    # 为什么不是从最后得到的特征图进入roi pooling呢，
+    # 是采用的Object Detection Networks on Convolutional Feature Maps中NoC的方法吗？
+    # 作者：没错，是NoC方法。采用resNet作为backbone的话，一般都用conv_5作为head对每个roi进行分类和回归。
     return C4
+
 
 
 def restnet_head(input, is_training, scope_name): # clw note：resnet_head是在更深层的位置

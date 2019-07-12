@@ -80,11 +80,11 @@ class DetectionNetwork(object):
                                                                              img_shape=img_shape)
 
                 # 3. NMS
-                keep = tf.image.non_max_suppression(
-                    boxes=tmp_decoded_boxes,
-                    scores=tmp_score,
-                    max_output_size=cfgs.FAST_RCNN_NMS_MAX_BOXES_PER_CLASS,
-                    iou_threshold=cfgs.FAST_RCNN_NMS_IOU_THRESHOLD)
+                keep = tf.image.non_max_suppression(boxes=tmp_decoded_boxes,
+                                                    scores=tmp_score,
+                                                    max_output_size=cfgs.FAST_RCNN_NMS_MAX_BOXES_PER_CLASS,
+                                                    iou_threshold=cfgs.FAST_RCNN_NMS_IOU_THRESHOLD)
+
 
                 perclass_boxes = tf.gather(tmp_decoded_boxes, keep)
                 perclass_scores = tf.gather(tmp_score, keep)
@@ -128,31 +128,37 @@ class DetectionNetwork(object):
             normalized_y1 = y1 / img_h
             normalized_y2 = y2 / img_h
 
+            # 获得一个正则化的roi范围
             normalized_rois = tf.transpose(
                 tf.stack([normalized_y1, normalized_x1, normalized_y2, normalized_x2]), name='get_normalized_rois')
 
             normalized_rois = tf.stop_gradient(normalized_rois)
 
+            # 这一块还不太理解，是对正则化的roi进行梯度裁剪吗？
             cropped_roi_features = tf.image.crop_and_resize(feature_maps, normalized_rois,
                                                             box_ind=tf.zeros(shape=[N, ],
                                                                              dtype=tf.int32),
                                                             crop_size=[cfgs.ROI_SIZE, cfgs.ROI_SIZE],
                                                             name='CROP_AND_RESIZE'
                                                             )
+
+            # 在特征图上获得与原始的图像想对应的特征图切片，并将特征图切片resize为规整的大小，以便于后期的特征图池化
             roi_features = slim.max_pool2d(cropped_roi_features,
                                            [cfgs.ROI_POOL_KERNEL_SIZE, cfgs.ROI_POOL_KERNEL_SIZE],
                                            stride=cfgs.ROI_POOL_KERNEL_SIZE)
-
+        # 返回池化后的特征图
         return roi_features
 
-    def build_fastrcnn(self, feature_to_cropped, rois, img_shape):
 
+    def build_fastrcnn(self, feature_to_cropped, rois, img_shape):
         with tf.variable_scope('Fast-RCNN'):
-            # 5. ROI Pooling
+            # 4. ROI Pooling
             with tf.variable_scope('rois_pooling'):
                 pooled_features = self.roi_pooling(feature_maps=feature_to_cropped, rois=rois, img_shape=img_shape)
 
-            # 6. inferecne rois in Fast-RCNN to obtain fc_flatten features
+            #  clw note：之后则是对特征图通过ResNet前向传播，并通过一个两个全连接网络，一个全连接网络负责做分类，
+            #            另一个全连接输出的回归的坐标信息。
+            # 5. inferecne rois in Fast-RCNN to obtain fc_flatten features
             if self.base_network_name.startswith('resnet'):
                 fc_flatten = resnet.restnet_head(input=pooled_features,
                                                  is_training=self.is_training,
@@ -163,11 +169,14 @@ class DetectionNetwork(object):
             else:
                 raise NotImplementedError('only support resnet and mobilenet')
 
-            # 7. cls and reg in Fast-RCNN
+            # 6. cls and reg in Fast-RCNN
             # tf.variance_scaling_initializer()
             # tf.VarianceScaling()
+            # 顶层的网络线通过的了一个ResNet的残差网络，最后将残差网络的输出分别接上两FC网络作为分类和回归的输出，
+            # 此时回归的输出依然为映射因子，后期需要对其进行decode才能转变为正常的在图像中的区域。以下为两层FC网络。
             with slim.arg_scope([slim.fully_connected], weights_regularizer=slim.l2_regularizer(cfgs.WEIGHT_DECAY)):
 
+                # 分类值
                 cls_score = slim.fully_connected(fc_flatten,
                                                  num_outputs=cfgs.CLASS_NUM+1,
                                                  weights_initializer=slim.variance_scaling_initializer(factor=1.0,
@@ -175,7 +184,7 @@ class DetectionNetwork(object):
                                                                                                        uniform=True),
                                                  activation_fn=None, trainable=self.is_training,
                                                  scope='cls_fc')
-
+                # 预测目标框值，输出为类数目*4
                 bbox_pred = slim.fully_connected(fc_flatten,
                                                  num_outputs=(cfgs.CLASS_NUM+1)*4,
                                                  weights_initializer=slim.variance_scaling_initializer(factor=1.0,
@@ -239,6 +248,7 @@ class DetectionNetwork(object):
         with tf.variable_scope('build_loss') as sc:
             with tf.variable_scope('rpn_loss'):
 
+                # 利用smooth_l1_loss_rpn 函数计算边框回归误差
                 rpn_bbox_loss = losses.smooth_l1_loss_rpn(bbox_pred=rpn_box_pred,
                                                           bbox_targets=rpn_bbox_targets,
                                                           label=rpn_labels,
@@ -251,16 +261,23 @@ class DetectionNetwork(object):
                 # rpn_cls_score = tf.reshape(rpn_cls_score, [-1, 2])
                 # rpn_labels = tf.reshape(rpn_labels, [-1])
                 # ensure rpn_labels shape is [-1]
+                # 只选出那些 label 为 0 与 1 的框label 所对应的 rpn_cls_score
                 rpn_select = tf.reshape(tf.where(tf.not_equal(rpn_labels, -1)), [-1])
                 rpn_cls_score = tf.reshape(tf.gather(rpn_cls_score, rpn_select), [-1, 2])
+                # 选出那些label所对应的 ground_truth 对应的标签 函数接收的时候为所有的anchor对应的，针对label的赋值，来小批量的处理
                 rpn_labels = tf.reshape(tf.gather(rpn_labels, rpn_select), [-1])
 
+                # 采用交叉熵衡量分类误差，这里只有 有目标与没目标之间两类
                 rpn_cls_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=rpn_cls_score,
                                                                                              labels=rpn_labels))
-
+                # 对分类以及回归误差分别进行加权后return
                 rpn_cls_loss = rpn_cls_loss * cfgs.RPN_CLASSIFICATION_LOSS_WEIGHT
                 rpn_bbox_loss = rpn_bbox_loss * cfgs.RPN_LOCATION_LOSS_WEIGHT
 
+            # 首先从所有的rpn_label 中选出仅仅作为minibatch参与计算loss的label，获得相关的rpn网络对于minibatch中anchor
+            # 的二分类值，最后计算标签与预测值之间的交叉熵，得到分类的误差，得到这两类误差后，就可以对其进行加权相加得到
+            # RPN网络的总误差值。在计算Fast-RCNN的边框回归误差以及分类误差的时候，由于RPN与Fast-RCNN采用的loss相同，
+            # 只是在具体的类别上不一致，因此采用了与RPN网络同样的误差函数：
             with tf.variable_scope('FastRCNN_loss'):
                 if not cfgs.FAST_RCNN_MINIBATCH_SIZE == -1:
                     bbox_loss = losses.smooth_l1_loss_rcnn(bbox_pred=bbox_pred,
@@ -292,6 +309,7 @@ class DetectionNetwork(object):
                                                                bbox_pred=bbox_pred,
                                                                num_ohem_samples=256,
                                                                num_classes=cfgs.CLASS_NUM + 1)
+                # 在计算Fast-RCNN的分类误差时，采用所有类的交叉熵，得到回归误差与分类误差加权。
                 cls_loss = cls_loss * cfgs.FAST_RCNN_CLASSIFICATION_LOSS_WEIGHT
                 bbox_loss = bbox_loss * cfgs.FAST_RCNN_LOCATION_LOSS_WEIGHT
             loss_dict = {
@@ -322,7 +340,8 @@ class DetectionNetwork(object):
                                regularizer=slim.l2_regularizer(cfgs.WEIGHT_DECAY)): # 默认的正则化函数
 
             # 建立RPN网络，可以看出，这是一个三层的卷积网络，第一层网络采用一个3X3的卷积核在特征图上滑动，生成一个高层的特征图，
-            # 第二层的一路通过1x1的卷积核，stride=1进行滑动，每一处的输出维度为锚点数*2 ，输出维度与rpn_conv3x3相同，
+            # 第二层的一路通过1x1的卷积核，stride=1进行滑动，每一处的输出维度为锚点数*2（每一处是否为目标 相当于二分类）
+            # 输出维度与rpn_conv3x3相同，
             # 另一路在卷积特征图上用1x1的卷积核stride为1进行卷积，卷积核的深度为锚点数 * 4。根据原始faster - rcnn论文，
             # 这里第二层一路卷积输出为当前位置是否含有目标，另一路卷积输出为框回归坐标，第二层卷积核通过softmax函数归一化处理。
             rpn_conv3x3 = slim.conv2d(feature_to_cropped, 512, [3, 3],
@@ -345,12 +364,15 @@ class DetectionNetwork(object):
             rpn_cls_score = tf.reshape(rpn_cls_score, [-1, 2])
             rpn_cls_prob = slim.softmax(rpn_cls_score, scope='rpn_cls_prob')
 
-        # 3. generate_anchors
+
+        # --------------- 3. generate_anchors ---------------
+
         # clw note：在resnet_base网络所获得的特征图上根据scales以及ratios产生Anchors
         featuremap_height, featuremap_width = tf.shape(feature_to_cropped)[1], tf.shape(feature_to_cropped)[2]
         featuremap_height = tf.cast(featuremap_height, tf.float32)
         featuremap_width = tf.cast(featuremap_width, tf.float32)
 
+        #  clw note：调用make_anchors()函数，在resnet_base 网络所获得的特征图上根据scales以及ratios产生Anchors
         anchors = anchor_utils.make_anchors(base_anchor_size=cfgs.BASE_ANCHOR_SIZE_LIST[0],
                                             anchor_scales=cfgs.ANCHOR_SCALES, anchor_ratios=cfgs.ANCHOR_RATIOS,
                                             featuremap_height=featuremap_height,
@@ -366,11 +388,16 @@ class DetectionNetwork(object):
         #                                         anchor_ratios=cfgs.ANCHOR_RATIOS, base_size=16
         #                                         )
 
-        # 4. postprocess rpn proposals. such as: decode, clip, NMS
+
+        # --------------- 4. postprocess rpn proposals. such as: decode, clip, NMS ---------------
+
+        # clw note： 对于RPN 进行预处理，编码，切片，非极大值抑制（NMS）
         with tf.variable_scope('postprocess_RPN'):
             # rpn_cls_prob = tf.reshape(rpn_cls_score, [-1, 2])
             # rpn_cls_prob = slim.softmax(rpn_cls_prob, scope='rpn_cls_prob')
             # rpn_box_pred = tf.reshape(rpn_box_pred, [-1, 4])
+
+            # clw note：此时生成的anchor是没有经过任何处理的，因此需要对其进行处理，减小处理的复杂度
             rois, roi_scores = postprocess_rpn_proposals(rpn_bbox_pred=rpn_box_pred,
                                                          rpn_cls_prob=rpn_cls_prob,
                                                          img_shape=img_shape,
@@ -394,13 +421,19 @@ class DetectionNetwork(object):
                 tf.summary.image('score_greater_05_rois', score_gre_05_in_img)
             # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+        # clw note：在模型训练过程中，需要对RPN网络不断的进行训练，因此以下则是在训练中针对于anchor产生层的训练设计方法：
+        # 从所有的anchor中取一部分，计算其与ground truth之间的准确性
+        # 计算之前得出的Anchors与ground truth的重叠率
         if self.is_training:
             with tf.variable_scope('sample_anchors_minibatch'):
-                rpn_labels, rpn_bbox_targets = \
-                    tf.py_func(
-                        anchor_target_layer,
-                        [gtboxes_batch, img_shape, anchors],
-                        [tf.float32, tf.float32])
+                # clw note：这里会调用anchor_target_layer()这个函数
+                #           tf.py_func的核心是一个func函数(由用户自己定义)，该函数接收numpy array作为输入，
+                #           并返回numpy array类型的输出。看到这里，大家应该能够明白为什么建议使用py_func，
+                #           因为在func函数中，可以对转化成numpy array的tensor进行np.运算，这就大大扩展了程序的灵活性。
+                #           详见https://blog.csdn.net/tiankongtiankong01/article/details/80568311
+                rpn_labels, rpn_bbox_targets = tf.py_func(anchor_target_layer,
+                                                          [gtboxes_batch, img_shape, anchors],
+                                                          [tf.float32, tf.float32])
                 rpn_bbox_targets = tf.reshape(rpn_bbox_targets, [-1, 4])
                 rpn_labels = tf.to_int32(rpn_labels, name="to_int32")
                 rpn_labels = tf.reshape(rpn_labels, [-1])
@@ -408,6 +441,8 @@ class DetectionNetwork(object):
 
             # --------------------------------------add smry----------------------------------------------------------------
 
+            # clw note：计算RPN分类的准确度，这里主要针对的是RPN网络是否预测出了尽可能多正确的背景框以及含有目标的框，
+            # 这里不考虑那些label为-1 的框，只考虑 label为0 或者label为1的框，判断其准确度
             rpn_cls_category = tf.argmax(rpn_cls_prob, axis=1)
             kept_rpppn = tf.reshape(tf.where(tf.not_equal(rpn_labels, -1)), [-1])
             rpn_cls_category = tf.gather(rpn_cls_category, kept_rpppn)
@@ -415,6 +450,7 @@ class DetectionNetwork(object):
             tf.summary.scalar('ACC/rpn_accuracy', acc)
 
             with tf.control_dependencies([rpn_labels]):
+                # 刚才的设计都是针对于RPN网络的，并没有设计到真正的类别信息，以下则采用RCNN部分获得其相关的roi，target等信息句
                 with tf.variable_scope('sample_RCNN_minibatch'):
                     rois, labels, bbox_targets = \
                     tf.py_func(proposal_target_layer,
@@ -452,6 +488,27 @@ class DetectionNetwork(object):
             '''
             when trian. We need build Loss
             '''
+
+# 之前的Fast-RCNN网络引入了multi-task loss，在网络采用了全连接网络作为分类和边框回归，
+# 因此只有上图中第二个slice的Loss函数，在Faster-RCNN网络中，引入了RPN网络，在训练RPN网络时候，
+# 则引入了RPN网络的Loss函数，如上图中第一个slice。
+# clw note：原文：https://blog.csdn.net/zhao347316568/article/details/85028216
+
+# 有了如上的概念后，根据我们的网络，我们需要获取的参量为：
+# RPN网络：
+# 1.anchor的类别预测 pi 
+# 2.ground truth的类别标签 pi* 
+# 3. 256个位置对应的 256×（scale×ratios） 个anchor对应的编码后的 t 预测矩阵，
+# 4.每一个anchor对应的最大重叠率的ground truth bbox的 t target 矩阵
+
+# Fast-RCNN网络：
+# 1.真实的类别标签 u
+# 2.预测的类概率 p
+# 3.真实的ground truth 对应的 t 矩阵
+# 4.预测的bbox 对应的 t 矩阵
+
+            # 在代码中，定义了一个loss_dict,用来保存RPN网络和Faster-RCNN的loss，其接收的参量如代码所示。
+            # 进build_loss看一下：
             loss_dict = self.build_loss(rpn_box_pred=rpn_box_pred,
                                         rpn_bbox_targets=rpn_bbox_targets,
                                         rpn_cls_score=rpn_cls_score,
@@ -461,6 +518,7 @@ class DetectionNetwork(object):
                                         cls_score=cls_score,
                                         labels=labels)
 
+            # clw note：如果不进行训练，则此时直接进行解码就可以得到最终的bbox，每一个对应的分值，以及相关的box对应的类别信息。
             final_bbox, final_scores, final_category = self.postprocess_fastrcnn(rois=rois,
                                                                                  bbox_ppred=bbox_pred,
                                                                                  scores=cls_prob,

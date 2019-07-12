@@ -20,6 +20,9 @@ from help_utils import tools
 os.environ["CUDA_VISIBLE_DEVICES"] = cfgs.GPU_GROUP
 
 
+# 网友：As recommended in this github repo: https://github.com/yangxue0827/FPN_Tensorflow,
+# I'm wondering is your implementation for FPN?
+# 作者：We are trying, but the FPN currently implemented is 10% lower than the Faster-RCNN. @MrWanter
 def train():
 
     # Step 1:
@@ -72,6 +75,7 @@ def train():
     fastrcnn_loc_loss = loss_dict['fastrcnn_loc_loss']
     fastrcnn_total_loss = fastrcnn_cls_loss + fastrcnn_loc_loss
 
+    # clw note：根据论文的公式，最后将RPN网络的（分类，回归）误差与Fast-RCNN的(分类，回归）误差相加后作为总的误差进行训练即可。
     total_loss = rpn_total_loss + fastrcnn_total_loss
     # ____________________________________________________________________________________________________build loss
 

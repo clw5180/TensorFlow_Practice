@@ -168,11 +168,14 @@ KEEP_PROB = 1.0
 SHOW_SCORE_THRSHOLD = 0.5  # only show in tensorboard
 
 FAST_RCNN_NMS_IOU_THRESHOLD = 0.3  # 0.6
-FAST_RCNN_NMS_MAX_BOXES_PER_CLASS = 100
-FAST_RCNN_IOU_POSITIVE_THRESHOLD = 0.5
+#FAST_RCNN_NMS_MAX_BOXES_PER_CLASS = 100
+FAST_RCNN_NMS_MAX_BOXES_PER_CLASS = 500  # clw modify:钢筋一张图ground truth个数最多的有300个，所以采用默认的100肯定不行...
+FAST_RCNN_IOU_POSITIVE_THRESHOLD = 0.5  # clw note：该值应该是确定anchor和gt框在何种阈值下，为正样本的阈值。假如比赛要求是0.7 ，该参数也应该提高
 FAST_RCNN_IOU_NEGATIVE_THRESHOLD = 0.0   # 0.1 < IOU < 0.5 is negative
-FAST_RCNN_MINIBATCH_SIZE = 256  # if is -1, that is train with OHEM
-FAST_RCNN_POSITIVE_RATE = 0.25
+#FAST_RCNN_MINIBATCH_SIZE = 256  # if is -1, that is train with OHEM
+FAST_RCNN_MINIBATCH_SIZE = 512  # clw modify：当钢筋场景中，一张图ground truth个数最多都有300个左右，适当增加样本采样会更利于训练
+#FAST_RCNN_POSITIVE_RATE = 0.25
+FAST_RCNN_POSITIVE_RATE = 0.5  # clw modify：提取的RPN层正样本还是设多一点，至少正负样本一样多吧
 
 ADD_GTBOXES_TO_TRAIN = False
 

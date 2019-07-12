@@ -34,6 +34,12 @@ def postprocess_rpn_proposals(rpn_bbox_pred, rpn_cls_prob, img_shape, anchors, i
     cls_prob = rpn_cls_prob[:, 1]
 
     # 1. decode boxes
+    # clw note：这个函数接受RPN网络的预测框位置，以及预测的类别（两类），图像的尺寸大小，以及生成的锚点作为输入。
+    #           经过解码后，得到的是真实的预测框的位置，因为有可能预测的框比设定的选取前N个框的个数还小，
+    #           因此在预测框的数目以及设定的数目之间取最小值，之后再采用 tf.image.non_max_suppression抑制，
+    #           选取最终的非极大值抑制后的Top K个框，原论文中未采用NMS之前为12000个（就是上面的cfgs.RPN_TOP_K_NMS_TRAIN），
+    #           NMS后为2000个（就是上面的cfgs.RPN_MAXIMUM_PROPOSAL_TARIN）。
+    #           这里还没有具体的分类那个框是那个目标，只是选出了前K个可能存在目标的框。
     decode_boxes = encode_and_decode.decode_boxes(encoded_boxes=rpn_bbox_pred,
                                                   reference_boxes=anchors,
                                                   scale_factors=cfgs.ANCHOR_SCALE_FACTORS)
@@ -47,7 +53,8 @@ def postprocess_rpn_proposals(rpn_bbox_pred, rpn_cls_prob, img_shape, anchors, i
                                                             img_shape=img_shape)
 
     # 3. get top N to NMS
-    if pre_nms_topN > 0:
+    if pre_nms_topN > 0:  # clw note：得出一个初步的框之后，然后先得到，没有进行非极大值抑制之前的前TopK个是前景的框，
+                          #           之后再进行极大值抑制。
         pre_nms_topN = tf.minimum(pre_nms_topN, tf.shape(decode_boxes)[0], name='avoid_unenough_boxes')
         cls_prob, top_k_indices = tf.nn.top_k(cls_prob, k=pre_nms_topN)
         decode_boxes = tf.gather(decode_boxes, top_k_indices)
