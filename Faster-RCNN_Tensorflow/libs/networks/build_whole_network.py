@@ -482,30 +482,33 @@ class DetectionNetwork(object):
             tf.summary.scalar('ACC/fast_acc', fast_acc)
 
         #  6. postprocess_fastrcnn
+        # clw note：如果不进行训练，则此时直接进行解码
+        # 就可以得到最终的bbox，每一个对应的分值，以及相关的box对应的类别信息。
         if not self.is_training:
             return self.postprocess_fastrcnn(rois=rois, bbox_ppred=bbox_pred, scores=cls_prob, img_shape=img_shape)
+        # 否则，如果需要进行训练，则我们还需要计算出loss，进而采用优化方法来降低loss
         else:
             '''
             when trian. We need build Loss
             '''
 
-# 之前的Fast-RCNN网络引入了multi-task loss，在网络采用了全连接网络作为分类和边框回归，
-# 因此只有上图中第二个slice的Loss函数，在Faster-RCNN网络中，引入了RPN网络，在训练RPN网络时候，
-# 则引入了RPN网络的Loss函数，如上图中第一个slice。
-# clw note：原文：https://blog.csdn.net/zhao347316568/article/details/85028216
+            # 之前的Fast-RCNN网络引入了multi-task loss，在网络采用了全连接网络作为分类和边框回归，
+            # 因此只有上图中第二个slice的Loss函数，在Faster-RCNN网络中，引入了RPN网络，在训练RPN网络时候，
+            # 则引入了RPN网络的Loss函数，如上图中第一个slice。
+            # clw note：原文：https://blog.csdn.net/zhao347316568/article/details/85028216
 
-# 有了如上的概念后，根据我们的网络，我们需要获取的参量为：
-# RPN网络：
-# 1.anchor的类别预测 pi 
-# 2.ground truth的类别标签 pi* 
-# 3. 256个位置对应的 256×（scale×ratios） 个anchor对应的编码后的 t 预测矩阵，
-# 4.每一个anchor对应的最大重叠率的ground truth bbox的 t target 矩阵
+            # 有了如上的概念后，根据我们的网络，我们需要获取的参量为：
+            # RPN网络：
+            # 1.anchor的类别预测 pi 
+            # 2.ground truth的类别标签 pi* 
+            # 3. 256个位置对应的 256×（scale×ratios） 个anchor对应的编码后的 t 预测矩阵，
+            # 4.每一个anchor对应的最大重叠率的ground truth bbox的 t target 矩阵
 
-# Fast-RCNN网络：
-# 1.真实的类别标签 u
-# 2.预测的类概率 p
-# 3.真实的ground truth 对应的 t 矩阵
-# 4.预测的bbox 对应的 t 矩阵
+            # Fast-RCNN网络：
+            # 1.真实的类别标签 u
+            # 2.预测的类概率 p
+            # 3.真实的ground truth 对应的 t 矩阵
+            # 4.预测的bbox 对应的 t 矩阵
 
             # 在代码中，定义了一个loss_dict,用来保存RPN网络和Faster-RCNN的loss，其接收的参量如代码所示。
             # 进build_loss看一下：
@@ -518,7 +521,7 @@ class DetectionNetwork(object):
                                         cls_score=cls_score,
                                         labels=labels)
 
-            # clw note：如果不进行训练，则此时直接进行解码就可以得到最终的bbox，每一个对应的分值，以及相关的box对应的类别信息。
+
             final_bbox, final_scores, final_category = self.postprocess_fastrcnn(rois=rois,
                                                                                  bbox_ppred=bbox_pred,
                                                                                  scores=cls_prob,
