@@ -367,12 +367,14 @@ class DetectionNetwork(object):
 
         # --------------- 3. generate_anchors ---------------
 
-        # clw note：在resnet_base网络所获得的特征图上根据scales以及ratios产生Anchors
+        # clw note：在resnet_base网络所获得的feature map上，根据scales以及ratios产生Anchors
         featuremap_height, featuremap_width = tf.shape(feature_to_cropped)[1], tf.shape(feature_to_cropped)[2]
         featuremap_height = tf.cast(featuremap_height, tf.float32)
         featuremap_width = tf.cast(featuremap_width, tf.float32)
 
         #  clw note：调用make_anchors()函数，在resnet_base 网络所获得的特征图上根据scales以及ratios产生Anchors
+        #            此时生成的anchor是没有经过任何处理的，因此需要对其进行处理，减小处理的复杂度
+        #            见下面步骤4
         anchors = anchor_utils.make_anchors(base_anchor_size=cfgs.BASE_ANCHOR_SIZE_LIST[0],
                                             anchor_scales=cfgs.ANCHOR_SCALES, anchor_ratios=cfgs.ANCHOR_RATIOS,
                                             featuremap_height=featuremap_height,
@@ -389,15 +391,14 @@ class DetectionNetwork(object):
         #                                         )
 
 
-        # --------------- 4. postprocess rpn proposals. such as: decode, clip, NMS ---------------
 
-        # clw note： 对于RPN 进行预处理，编码，切片，非极大值抑制（NMS）
+        # --------------- 4. postprocess rpn proposals. such as: decode, clip, NMS ---------------
         with tf.variable_scope('postprocess_RPN'):
             # rpn_cls_prob = tf.reshape(rpn_cls_score, [-1, 2])
             # rpn_cls_prob = slim.softmax(rpn_cls_prob, scope='rpn_cls_prob')
             # rpn_box_pred = tf.reshape(rpn_box_pred, [-1, 4])
 
-            # clw note：此时生成的anchor是没有经过任何处理的，因此需要对其进行处理，减小处理的复杂度
+            # clw note：这里进入RPN的后处理阶段，包括：编码，切片，非极大值抑制（NMS）
             rois, roi_scores = postprocess_rpn_proposals(rpn_bbox_pred=rpn_box_pred,
                                                          rpn_cls_prob=rpn_cls_prob,
                                                          img_shape=img_shape,

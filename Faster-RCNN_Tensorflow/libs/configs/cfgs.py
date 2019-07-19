@@ -5,7 +5,7 @@ import tensorflow as tf
 
 '''
 /home/yjr/softWares/anaconda/bin/python2.7 /home/yjr/PycharmProjects/Faster-RCNN_TF/tools/eval.py
-++--++--++--++--++--++--++--++--++--++--++--++--++--++--++--++--++--++--++--++--
+++--++--++--++--++--++--+https://github.com/clw5180/TensorFlow_Practice.git+--++--++--++--++--++--++--++--++--++--++--++--++--++--
 /home/yjr/PycharmProjects/Faster-RCNN_TF
 model restore from : /home/yjr/PycharmProjects/Faster-RCNN_TF/output/trained_weights/FasterRCNN_20180527/voc_70001model.ckpt
 

@@ -23,13 +23,13 @@ def postprocess_rpn_proposals(rpn_bbox_pred, rpn_cls_prob, img_shape, anchors, i
     '''
 
     if is_training:
-        pre_nms_topN = cfgs.RPN_TOP_K_NMS_TRAIN
-        post_nms_topN = cfgs.RPN_MAXIMUM_PROPOSAL_TARIN
-        nms_thresh = cfgs.RPN_NMS_IOU_THRESHOLD
+        pre_nms_topN = cfgs.RPN_TOP_K_NMS_TRAIN          # 默认12000
+        post_nms_topN = cfgs.RPN_MAXIMUM_PROPOSAL_TARIN  # 默认2000
+        nms_thresh = cfgs.RPN_NMS_IOU_THRESHOLD          # 默认0.7
     else:
-        pre_nms_topN = cfgs.RPN_TOP_K_NMS_TEST
-        post_nms_topN = cfgs.RPN_MAXIMUM_PROPOSAL_TEST
-        nms_thresh = cfgs.RPN_NMS_IOU_THRESHOLD
+        pre_nms_topN = cfgs.RPN_TOP_K_NMS_TEST           # 默认6000
+        post_nms_topN = cfgs.RPN_MAXIMUM_PROPOSAL_TEST   # 默认300
+        nms_thresh = cfgs.RPN_NMS_IOU_THRESHOLD          # 默认0.7
 
     cls_prob = rpn_cls_prob[:, 1]
 
@@ -53,8 +53,8 @@ def postprocess_rpn_proposals(rpn_bbox_pred, rpn_cls_prob, img_shape, anchors, i
                                                             img_shape=img_shape)
 
     # 3. get top N to NMS
-    if pre_nms_topN > 0:  # clw note：得出一个初步的框之后，然后先得到，没有进行非极大值抑制之前的前TopK个是前景的框，
-                          #           之后再进行极大值抑制。
+    if pre_nms_topN > 0:  # clw note：初步得到一系列框（~60*40*9=20k）之后，如果是训练集，会去掉与边界相交的anchors，因此
+                          #           数量会大大减小，即NMS之前的TopK个框（这里默认值是12k，文中给的6k），之后再进行NMS。
         pre_nms_topN = tf.minimum(pre_nms_topN, tf.shape(decode_boxes)[0], name='avoid_unenough_boxes')
         cls_prob, top_k_indices = tf.nn.top_k(cls_prob, k=pre_nms_topN)
         decode_boxes = tf.gather(decode_boxes, top_k_indices)
