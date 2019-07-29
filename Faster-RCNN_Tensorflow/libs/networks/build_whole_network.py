@@ -32,7 +32,6 @@ class DetectionNetwork(object):
     def build_base_network(self, input_img_batch):
 
         # clw note：作者当前只针对resnet_v1和MobileNetV2做了实现，因此只支持这两种网络。
-        # TODO：看后续能不能添加resnet_v2或者其他更高端的CNN结构
         if self.base_network_name.startswith('resnet_v1'):
             return resnet.resnet_base(input_img_batch, scope_name=self.base_network_name, is_training=self.is_training)
 
@@ -332,7 +331,9 @@ class DetectionNetwork(object):
         img_shape = tf.shape(input_img_batch) # 网络首先获得批次数据的基本信息，图像的shape 等。
 
         # 1. build base network
-        feature_to_cropped = self.build_base_network(input_img_batch) # 首先建立基础特征提取网络
+        # 首先建立基础特征提取网络，作者当前只针对 resnet_v1 和 MobileNetV2做了实现，因此只支持这两种网络。
+        # TODO：看后续能不能添加resnet_v2或者其他更高端的CNN结构，测一下AP
+        feature_to_cropped = self.build_base_network(input_img_batch)
 
         # 2. build rpn
         with tf.variable_scope('build_rpn',  # clw note：变量空间的名称，tf.variable_scope()主要用于管理图中变量的名字
@@ -344,7 +345,7 @@ class DetectionNetwork(object):
             # 输出维度与rpn_conv3x3相同，
             # 另一路在卷积特征图上用1x1的卷积核stride为1进行卷积，卷积核的深度为锚点数 * 4。根据原始faster - rcnn论文，
             # 这里第二层一路卷积输出为当前位置是否含有目标，另一路卷积输出为框回归坐标，第二层卷积核通过softmax函数归一化处理。
-            rpn_conv3x3 = slim.conv2d(feature_to_cropped, 512, [3, 3],
+            rpn_conv3x3 = slim.conv2d(feature_to_cropped, 512, [3, 3],   # 基于tf.conv2d的进一步封装，省去了很多参数
                                       trainable=self.is_training,
                                       weights_initializer=cfgs.INITIALIZER,
                                       activation_fn=tf.nn.relu,

@@ -48,18 +48,49 @@ def train():
 
     # Step 2：
     # clw note：Faster R-CNN网络的搭建！
-    # 网友：网络整体的构建采用了tf.slim 库，刚开始我不太喜欢用tf.slim 一直采用的 tensorlayer等更为高级一些的库，
-    # 无奈很多开源代码采用tf.slim 因此也不得不学习一些。这里采用 slim.arg_scope([list], **kargs) 
-    # 则表示在list中的所有元素都具有**kargs 的参数设置。这样子简化了更深层次的网络搭建，比较模块化。
+
+    # 先看一下下面这个函数arg_scope的声明
+    # @tf_contextlib.contextmanager
+    # def arg_scope(list_ops_or_scope, **kwargs): 功能是给list_ops中的内容设置默认值，即list中所有元素都用**kargs的参数设置。
+    # 有函数修饰符@tf_contextlib.contextmanager修饰arg_scope函数：@之后一般接一个可调用对象为其执行一系列辅助操作，
+    # 我们来看一个demo：
+    #########################################
+    # import time
+    # def my_time(func):
+    #     print(time.ctime())
+    #     return func()
+    #
+    # @my_time  # 从这里可以看出@time 等价于 time(xxx()),但是这种写法你得考虑python代码的执行顺序
+    # def xxx():
+    #     print('Hello world!')
+    #
+    # 运行结果：
+    # Wed Jul 26 23:01:21 2017
+    # Hello world!
+    ##########################################
+    # 在这个例子中，xxx函数实现我们的主要功能，打印Hello world，但我们想给xxx函数添加一些辅助操作，让它同时打印出时间，于是我们用
+    # 函数修饰符 @ my_time完成这个目标。整个例子的执行流程为调用my_time可调用对象，它接受xxx函数作为参数，先打印时间，再执行xxx函数
+    # 详见：https://www.cnblogs.com/zzy-tf/p/9356883.html
+
+    # 来看另一个demo：
+    ##########################################
+    # with slim.arg_scope(
+    #                 [slim.conv2d, slim.max_pool2d, slim.avg_pool2d],stride = 1, padding = 'VALID'):
+    #             net = slim.conv2d(inputs, 32, [3, 3], stride = 2, scope = 'Conv2d_1a_3x3')
+    #             net = slim.conv2d(net, 32, [3, 3], scope = 'Conv2d_2a_3x3')
+    #             net = slim.conv2d(net, 64, [3, 3], padding = 'SAME', scope = 'Conv2d_2b_3x3')
+    # 所以，在使用过程中可以直接slim.conv2d( )等函数设置默认参数。例如在下面的代码中，不做单独声明的情况下，
+    # slim.conv2d, slim.max_pool2d, slim.avg_pool2d三个函数默认的步长都设为1，padding模式都是'VALID'的。
+    # 当然也可以在调用时进行单独声明，只不过一个一个写很麻烦，不如统一给个默认值。
+    # 这种参数设置方式在构建网络模型时，尤其是较深的网络时，可以节省时间。
     with slim.arg_scope([slim.conv2d, slim.conv2d_in_plane, slim.conv2d_transpose, slim.separable_conv2d, slim.fully_connected],
                         weights_regularizer=weights_regularizer,
                         biases_regularizer=biases_regularizer,
                         biases_initializer=tf.constant_initializer(0.0)): # list as many types of layers as possible,
                                                                           # even if they are not used now
 
-        # build_whole_detection_network 的方法构建整体网络架构。整体的网络包含了特征提取网络，RPN网络，Pooling层，
-        # 以及后续网络，其返回值为网络的最后的预测框，预测的类别信息，预测的概率，以及整体网络和RPN网络的损失，
-        # 所有的损失被写入到一个字典中。
+        # build_whole_detection_network功能：构建整体网络架构，包含backbone，RPN网络，Pooling层，以及后续网络。
+        # return：网络的最后的预测框，预测的类别信息，预测的概率，以及整体网络和RPN网络的损失，所有的损失被写入到一个字典中。
         final_bbox, final_scores, final_category, loss_dict = faster_rcnn.build_whole_detection_network(
             input_img_batch=img_batch,
             gtboxes_batch=gtboxes_and_label)

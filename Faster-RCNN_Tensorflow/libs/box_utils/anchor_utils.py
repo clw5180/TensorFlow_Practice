@@ -3,11 +3,12 @@ from __future__ import absolute_import, print_function, division
 
 import tensorflow as tf
 
-def make_anchors(base_anchor_size,  # clw note：作者给的默认值是256
+def make_anchors(base_anchor_size,  # clw note：作者给的默认值是256，如果是检测小物体，可以考虑配成64或其他值
                  anchor_scales,     #           论文中是[0.5, 1, 2]
                  anchor_ratios,     #           论文中是[0.5, 1, 2]
-                 featuremap_height, #           比如224*224的图，如经过ResNet50，到这里就相当于7*7（相当于除以32）
-                 featuremap_width,  #           具体可见笔记：ResNet结构图
+                 featuremap_height, #           比如224*224的图，backbone是ResNet50，到这里就相当于14*14（相当于除以16）
+                 featuremap_width,  #           因为这里是从ResNet的conv_4接出来送入RPN网络，然后conv_5作为head，详见resnet.py
+                                    #           具体可见笔记：ResNet结构图
                  stride,            #           cfgs.py中默认设置为16，且作者建议不要修改
                  name='make_anchors'):
     '''
@@ -46,7 +47,12 @@ def make_anchors(base_anchor_size,  # clw note：作者给的默认值是256
 
 #-----------------------------------------------------------------------
 # clw note：具体生成框的代码分析如下：
-# 经过两层枚举，就可以得到九种大小不同的hs和ws。经过乘以stride后所得到的x_center 与 y_center ,则为具体在原始图像上的锚点中心，
+# 经过两层枚举，就可以得到九种大小不同的hs和ws。
+# 比如base_anchor_size = [256]， 对应base_anchor=[0, 0, 256, 256]，anchor_scales=[0.5, 1, 2]，
+# 首先经过enum_scales()得到anchor_scales=[[128], [256], [512]]
+# 之后经过enum_ratios()，比如anchor_ratios=[0.5, 1, 2]
+#
+# 经过乘以stride后所得到的x_center 与 y_center ,则为具体在原始图像上的锚点中心，
 # 经过anchors = tf.concat([anchor_centers - 0.5*box_sizes, anchor_centers + 0.5*box_sizes], axis=1)，
 # 则可以得到每一个锚点对应的九种不同anchor 的坐标值分别为，（左下角，右上角）。
 def enum_scales(base_anchor, anchor_scales):
@@ -58,7 +64,7 @@ def enum_scales(base_anchor, anchor_scales):
 
 def enum_ratios(anchors, anchor_ratios):
     '''
-    ratio = h /w
+    ratio = h / w
     :param anchors:
     :param anchor_ratios:
     :return:

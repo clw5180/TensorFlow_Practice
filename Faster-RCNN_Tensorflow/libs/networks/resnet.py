@@ -126,9 +126,12 @@ def resnet_base(img_batch, scope_name, is_training=True):
                 net, [3, 3], stride=2, padding='VALID', scope='pool1')
 
     # clw note：在resnet.py文件中，定义了resenet_base网络以及resnet_head网络，一个作为基础的特征提取网络，
-    # 另一个则作为RoI Pooling后的检测，分类顶层网络。
-    # 在建立base网络时，根据下面的not_freezed
-    # 确定是否对特征提取网络进行再训练
+    # 另一个则作为RoI Pooling后的检测，分类顶层网络。在建立base网络时，根据not_freezed确定是否对特征提取网络进行再训练
+    # 举例说明，比如ResNet50的conv2~conv5，对应卷积组个数分别为3，4，6，3
+    # 比如默认FIXED_BLOCKS=1，not_freezed结果为[False, True, True, True]，那么conv2，也就是block0不会被训练，conv3会被训练
+    # 比如改成FIXED_BLOCKS=2，那么conv2，3都不会被训练，conv4会被训练；
+    # 比如改成FIXED_BLOCKS=3，那么conv2，3，4都不会被训练；
+    #
     not_freezed = [False] * cfgs.FIXED_BLOCKS + (4-cfgs.FIXED_BLOCKS)*[True]
     # Fixed_Blocks can be 1~3
 
@@ -161,9 +164,10 @@ def resnet_base(img_batch, scope_name, is_training=True):
     # C4 = tf.Print(C4, [tf.shape(C4)], summarize=10, message='C4_shape')
 
     # 网友提问：我看你的代码中关于采用resnet提取特征的，发现特征图是从conv_4之后那个进入roi pooling的，
-    # 为什么不是从最后得到的特征图进入roi pooling呢，
-    # 是采用的Object Detection Networks on Convolutional Feature Maps中NoC的方法吗？
+    # 为什么不是从最后得到的特征图conv_5进入roi pooling呢，
+    # 另外是采用的Object Detection Networks on Convolutional Feature Maps中NoC的方法吗？
     # 作者：没错，是NoC方法。采用resNet作为backbone的话，一般都用conv_5作为head对每个roi进行分类和回归。
+    # 自注：确实论文中是用conv_4的输出送入RPN，然后统一RoI Pooling后送入全卷积层conv_5，相当于fc层，进行分类和回归；
     return C4
 
 
