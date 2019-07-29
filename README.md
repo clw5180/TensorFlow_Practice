@@ -1,4 +1,4 @@
-#  基于TensorFlow实现的网络模型与实战练习
+#  基于TensorFlow实现的网络模型与实战
 整理、收藏一些好用的TensorFlow模型，配以注释；以及一些基于TensorFlow实现的示例。
 
 - Faster-RCNN_TF_py3：参考 https://github.com/smallcorgi/Faster-RCNN_TF ，原版为python2.x实现，尝试转为python3.x，尚未进行测试；
